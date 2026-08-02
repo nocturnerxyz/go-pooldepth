@@ -217,8 +217,17 @@ func (p *V3Pool) Quote(amountIn *big.Int, zeroForOne bool) (*Quote, error) {
 		sqrtTarget = clampToLimit(sqrtTarget, limit, zeroForOne)
 
 		if state.liquidity.Sign() == 0 {
-			// A gap in the provisioned range: no trading happens here, so jump
-			// straight to the boundary without consuming input.
+			if !initialized {
+				// Past the last provisioned tick with nothing left in range.
+				// Walking on to the price limit would report the swap as having
+				// pushed the price to the floor of the representable range,
+				// when in truth trading simply stopped where the liquidity did.
+				// That inflates measured impact enormously and makes an
+				// exhausted pool look infinitely movable.
+				break
+			}
+			// A gap between provisioned ranges: no trading happens here, so
+			// jump to the boundary without consuming input.
 			state.sqrtPriceX96 = sqrtTarget
 		} else {
 			sqrtNext, stepIn, stepOut, stepFee := computeSwapStep(

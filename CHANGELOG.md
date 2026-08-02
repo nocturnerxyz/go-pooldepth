@@ -11,6 +11,17 @@ While the major version is `0`, the API may change in a minor release.
 
 ### Added
 
+- `AmountToMovePrice` and `AssessManipulability` — the cost of moving the mark,
+  which is a different question from what a trade costs you, and unaffected by
+  the fee floor.
+
+### Fixed
+
+- A swap that exhausted the provisioned range reported its post-trade price as
+  the floor of the representable range rather than where liquidity actually
+  ended. This inflated measured impact enormously and made an exhausted pool
+  look infinitely movable.
+
 - `Split` — allocate an order across several pools at equal marginal cost,
   reporting blended and worst-leg cost separately, plus any shortfall.
 

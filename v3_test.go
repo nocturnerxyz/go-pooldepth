@@ -523,3 +523,42 @@ func BenchmarkV3Quote(b *testing.B) {
 		}
 	}
 }
+
+// Regression: when a swap exhausts the provisioned range, the reported
+// post-trade price must be where liquidity actually ran out — not the floor of
+// the representable price range.
+//
+// Walking on to the price limit through empty space inflated measured impact
+// enormously and made an exhausted pool look infinitely movable, which in turn
+// made AmountToMovePrice report that any target was reachable.
+func TestV3Quote_ExhaustedSwapStopsWhereLiquidityEnds(t *testing.T) {
+	// Liquidity only within roughly 6% of the current price.
+	p := symmetricPool(t, 600, "1000000000000000000", 3000)
+
+	q, err := p.Quote(bigOf(t, "100000000000000000000"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !q.Partial {
+		t.Fatal("an order far beyond the range should be partial")
+	}
+
+	// The range bottoms out around tick -600, which is about 5.8% below spot.
+	// Anything much larger than that means the price walked through empty space.
+	if q.PriceImpactBps > 700 {
+		t.Errorf("impact %d bps exceeds what the provisioned range allows; "+
+			"the price walked past where liquidity ended", q.PriceImpactBps)
+	}
+	if q.PriceImpactBps < 400 {
+		t.Errorf("impact %d bps is below the range floor, so the swap stopped early", q.PriceImpactBps)
+	}
+
+	// And the post-trade price must sit at the edge of the range, not at the
+	// bottom of the representable one.
+	edge := sqrtAt(t, -600)
+	edgeSpot := new(big.Int).Mul(edge, edge)
+	edgeSpot.Rsh(edgeSpot, 96)
+	if q.SpotPriceX96After.Cmp(edgeSpot) < 0 {
+		t.Errorf("post-trade price %s is below the range edge %s", q.SpotPriceX96After, edgeSpot)
+	}
+}

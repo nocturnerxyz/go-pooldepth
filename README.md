@@ -70,6 +70,20 @@ depth = reserveIn * (bps*100 - feePips) * 10000 / ((1e6 - feePips) * (10000 - bp
 
 When `bps*100 <= feePips`, the numerator goes non-positive. That term *is* the fee floor.
 
+## Cost to move the price
+
+```go
+cost, quote, err := pooldepth.AmountToMovePrice(pool, 200, true) // what moves the mark 2%?
+m, err := pooldepth.AssessManipulability(pool, 200, typicalOrderSize, true)
+if m.Manipulable() { /* an ordinary order can move this mark */ }
+```
+
+A different question from `DepthWithinBps`. Depth asks what a trade costs **you**; this asks what it costs to move the **price**. A pool where $3,000 moves the mark 5% is manipulable no matter how tight its quotes look at size — and that gap is widest exactly when liquidity thins out overnight.
+
+It measures price impact, so the fee is excluded: a fee is paid to the pool and doesn't move the mark. This also means it has **no fee floor** — a 10 bps price move is reachable in a 30 bps pool, even though `DepthWithinBps(10)` correctly returns zero.
+
+`AssessManipulability` divides that cost by a reference order size, because "$8,000 to move it 2%" means nothing without knowing what normal flow looks like.
+
 ## Splitting an order
 
 ```go
