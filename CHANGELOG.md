@@ -11,6 +11,9 @@ While the major version is `0`, the API may change in a minor release.
 
 ### Added
 
+- `Split` — allocate an order across several pools at equal marginal cost,
+  reporting blended and worst-leg cost separately, plus any shortfall.
+
 - `DepthCurve` — tradeable size at several cost budgets in one ascending sweep,
   threading each level's answer forward as a floor for the next.
 - `TotalDepth` — aggregate depth across several pools, including a mix of AMM types.

@@ -70,6 +70,19 @@ depth = reserveIn * (bps*100 - feePips) * 10000 / ((1e6 - feePips) * (10000 - bp
 
 When `bps*100 <= feePips`, the numerator goes non-positive. That term *is* the fee floor.
 
+## Splitting an order
+
+```go
+res, err := pooldepth.Split([]pooldepth.Pool{poolA, poolB, poolC}, amountIn, true)
+// res.Allocations, res.BlendedCostBps, res.WorstCostBps, res.Unfilled
+```
+
+Finds the smallest cost budget at which the pools together absorb the order, then gives each pool what it can take within it. That's the equal-marginal-cost allocation — the condition for total cost to be minimised — so the "send more to the deep pool" behaviour falls out of the depths rather than being hand-tuned.
+
+`WorstCostBps` is reported separately from `BlendedCostBps` because a split can look cheap on average while one leg is terrible. `Unfilled` is a risk signal, not a failure: "this name can take 40k of your 200k".
+
+This is a static plan computed against pre-trade state. Real execution is sequential and moves each pool as it goes, so realised cost is somewhat higher.
+
 ## Exactness
 
 Everything is integer arithmetic on `math/big`, mirroring the rounding direction of the Solidity libraries: **inputs round up, outputs round down**, always in the pool's favour.
