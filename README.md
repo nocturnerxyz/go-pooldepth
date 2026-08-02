@@ -45,6 +45,17 @@ Constructors copy every `big.Int` argument, so reusing your own values can't sil
 
 They differ by roughly the fee rate. Reporting one where the other was meant gives a slippage figure wrong by exactly one fee tier — close enough to look right, wrong in the direction that matters.
 
+## Depth curves
+
+```go
+curve, err := pooldepth.DepthCurve(pool, true, 10, 50, 100, 500)
+total, err := pooldepth.TotalDepth([]pooldepth.Pool{poolA, poolB}, 100, true)
+```
+
+A single depth number can't distinguish a pool that takes $2M at 10 bps and $2.1M at 500 bps from one that takes $2M at 10 bps and $40M at 500 bps. Those are completely different risks.
+
+Depth is monotonic in the budget, so `DepthCurve` sweeps upward and threads each level's answer forward as a floor for the next — skipping the probe phase for every level after the first. With concentrated liquidity, where each probe is a full tick traversal, that's the difference between one search and N. Pools with a closed form (v2) keep using it rather than being routed through the search.
+
 ## The fee floor
 
 `DepthWithinBps` returns **zero** when the budget is at or below the pool fee.

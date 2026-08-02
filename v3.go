@@ -298,6 +298,15 @@ func (p *V3Pool) DepthWithinBps(bps int, zeroForOne bool) (*big.Int, error) {
 	return searchDepth(p, bps, zeroForOne)
 }
 
+// depthFrom implements depthSearcher, letting DepthCurve thread each level's
+// answer forward as a floor for the next.
+func (p *V3Pool) depthFrom(bps int, zeroForOne bool, lowerBound *big.Int) (*big.Int, error) {
+	if err := validateBps(bps); err != nil {
+		return nil, err
+	}
+	return searchDepthFrom(p, bps, zeroForOne, lowerBound)
+}
+
 // nextTick returns the next initialized tick in the direction of travel, and
 // whether it is a real initialized tick or the end of the supplied data.
 func (p *V3Pool) nextTick(from int, zeroForOne bool) (tick int, initialized bool) {

@@ -11,6 +11,10 @@ While the major version is `0`, the API may change in a minor release.
 
 ### Added
 
+- `DepthCurve` — tradeable size at several cost budgets in one ascending sweep,
+  threading each level's answer forward as a floor for the next.
+- `TotalDepth` — aggregate depth across several pools, including a mix of AMM types.
+
 - `V2Pool` — constant-product pricing with a closed-form `DepthWithinBps`.
 - `V3Pool` — concentrated liquidity with full tick traversal, liquidity-net
   crossing, and gap skipping.

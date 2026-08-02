@@ -171,6 +171,17 @@ const (
 // Phase two doubles to bracket the answer, then bisects. Both phases are
 // bounded, so malformed pool data cannot make this spin.
 func searchDepth(p Pool, bps int, zeroForOne bool) (*big.Int, error) {
+	return searchDepthFrom(p, bps, zeroForOne, nil)
+}
+
+// searchDepthFrom is searchDepth with an optional known-good lower bound.
+//
+// Depth is monotonically non-decreasing in the budget, so when several levels
+// are computed together the answer for a smaller budget is a valid floor for a
+// larger one. Passing it skips the probe phase entirely and starts the bracket
+// from a much tighter position. The hint is verified rather than trusted: a
+// caller that passes a bad floor gets a correct answer, just no speedup.
+func searchDepthFrom(p Pool, bps int, zeroForOne bool, lowerBound *big.Int) (*big.Int, error) {
 	// within reports whether a size fits the budget. A size that exhausts the
 	// pool never fits, regardless of its quoted cost.
 	within := func(amount *big.Int) (ok bool, degenerate bool, err error) {
@@ -193,6 +204,17 @@ func searchDepth(p Pool, bps int, zeroForOne bool) (*big.Int, error) {
 			return false, false, nil
 		}
 		return q.ExecutionCostBps <= bps, false, nil
+	}
+
+	if lowerBound != nil && lowerBound.Sign() > 0 {
+		ok, degenerate, err := within(lowerBound)
+		if err != nil {
+			return nil, err
+		}
+		if ok && !degenerate {
+			return bracketAndBisect(within, new(big.Int).Set(lowerBound))
+		}
+		// The hint did not hold; fall through and search from scratch.
 	}
 
 	// Phase one: find a size out of the rounding-dominated regime.
@@ -249,11 +271,15 @@ func searchDepth(p Pool, bps int, zeroForOne bool) (*big.Int, error) {
 		// satisfies that budget.
 		return big.NewInt(0), nil
 	}
-	probe = seed
+	return bracketAndBisect(within, seed)
+}
 
-	// Phase two: bracket by doubling.
-	lo := new(big.Int).Set(probe)
+// bracketAndBisect doubles from a known-good size until the budget breaks, then
+// bisects the resulting bracket.
+func bracketAndBisect(within func(*big.Int) (bool, bool, error), seed *big.Int) (*big.Int, error) {
+	lo := new(big.Int).Set(seed)
 	var hi *big.Int
+
 	for i := 0; i < maxProbeDoublings; i++ {
 		next := new(big.Int).Lsh(lo, 1)
 		ok, degenerate, err := within(next)
@@ -271,7 +297,7 @@ func searchDepth(p Pool, bps int, zeroForOne bool) (*big.Int, error) {
 		return lo, nil
 	}
 
-	// Bisect. Invariant: lo is within budget, hi is not.
+	// Invariant: lo is within budget, hi is not.
 	one := big.NewInt(1)
 	for i := 0; i < maxBisections; i++ {
 		gap := new(big.Int).Sub(hi, lo)
